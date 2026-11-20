@@ -20,8 +20,8 @@ NASA 改版了 APOD 页面，原版 2019 年的抓取逻辑失效了：
   **图片地址**——原版从页面里第一个 `.jpg` 往回拼地址，如今会拼错图。本版优先读取页面的 `og:image` 元标签（官方分享图地址），缺失时才回退到旧方法。
 - **Title** — The page `<title>` and `og:title` are now a generic "APOD - NASA Science", so the original could no longer show the picture's real title. This version takes the title from the page's main heading.
   **标题**——页面的 `<title>` 与 `og:title` 如今只剩泛称 "APOD - NASA Science"，原版再也显示不出图片的真实标题。本版改从页面主标题取。
-- **The name, right under the picture / 图下方就有名字** — In the dropdown, today's title is printed directly beneath the picture, so you always know what you are looking at — and the archived file on disk carries the same name (date + title). The most practical touch of all: a picture whose name you can read.
-  下拉菜单里，今天的标题就印在图片正下方，看图先识名；存到硬盘的归档文件也用同一个名字（日期＋标题）。这是最实用的一条：图有名，才认得。
+- **The name, right under the picture — and it is clickable / 图下方就有名字，还能点** — In the dropdown, today's title is printed directly beneath the picture, so you always know what you are looking at — and the archived file on disk carries the same name (date + title). The most practical touch of all: a picture whose name you can read. Since v1.1 the title is clickable: click it and Finder opens the archive folder with today's picture selected.
+  下拉菜单里，今天的标题就印在图片正下方，看图先识名；存到硬盘的归档文件也用同一个名字（日期＋标题）。这是最实用的一条：图有名，才认得。v1.1 起标题可以点：点一下，Finder 就打开归档文件夹，并选中今天这张图。
 - **Daily archive / 每日归档** — Every fetched picture is also saved at full size to `~/Pictures/NASA-Apod/`, named `YYYY-MM-DD Title.jpg` (existing files are never overwritten). Over time this builds a quiet little local archive of the sky.
   每次抓到的图片还会以原图尺寸存入 `~/Pictures/NASA-Apod/`，命名为 `YYYY-MM-DD 标题.jpg`（已有文件不覆盖）。日积月累，就是一座安静的小小星空档案馆。
 - **Refresh every 12 hours / 12 小时刷新** — APOD changes once a day, and the full-size image is a few MB, so the plugin refreshes twice a day instead of hourly.
