@@ -63,6 +63,8 @@ The `.12h.` in the file name is SwiftBar's refresh-interval convention (every 12
 
 ## Changelog / 更新日志
 
+- **v1.7** (2026-11-20) — Bilingual UI that follows the system language: Chinese on Chinese systems, English elsewhere — dropdown, Archive submenu, first-run setup dialog, folder/path dialogs and the error line included. Set the `APOD_LANG` environment variable (`zh`/`en`) to override. / 界面双语跟随系统语言：中文系统显示中文，其它显示英文——下拉菜单、归档子菜单、首次运行设置框、选目录/输路径对话框与报错行全覆盖；可用环境变量 `APOD_LANG`（`zh`/`en`）覆盖。
+
 - **v1.6** (2026-11-20) — Plugin UI language unified to Simplified Chinese (title, description, status and error lines). / 插件界面文字统一为简体中文（标题、说明、状态与报错行）。
 - **v1.5** (2026-11-20) — The first-run setup dialog gains a “Choose folder…” button: pick a folder and you return to the dialog with the path filled in, then confirm. / 首次运行设置框新增「选择文件夹…」按钮：选好文件夹后带着新路径回到框里，再点确定。
 - **v1.4** (2026-11-20) — The archive folder is configurable: a first-run setup dialog (default prefilled, one click to accept) and an Archive submenu in the dropdown (choose folder, type a path, turn off, restore default), stored in `~/.nasa-apod.conf`. / 归档文件夹可配置：首次运行设置框（预填默认路径，点确定即用）＋下拉菜单里的归档子菜单（选择文件夹、输入路径、关闭、恢复默认），设置存 `~/.nasa-apod.conf`。

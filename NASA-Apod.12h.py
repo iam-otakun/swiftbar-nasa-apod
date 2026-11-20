@@ -8,11 +8,11 @@
 
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# <xbar.title>NASA 每日一图</xbar.title>
-# <xbar.version>v1.6</xbar.version>
+# <xbar.title>NASA 每日一图 / NASA APOD</xbar.title>
+# <xbar.version>v1.7</xbar.version>
 # <xbar.author>Otakun and Dash</xbar.author>
 # <xbar.author.github>iam-otakun</xbar.author.github>
-# <xbar.desc>在菜单栏显示 NASA 每日一图，并把原图按日期归档（归档文件夹可在下拉菜单里设置）。基于 Jake Vossen 的插件，因 NASA 改版 APOD 页面而复活并重写取图逻辑。</xbar.desc>
+# <xbar.desc>Shows the NASA Astronomy Picture of the Day in the menu bar and archives the original picture every day (archive folder configurable in the dropdown menu; UI language follows the system). 在菜单栏显示 NASA 每日一图，并把原图按日期归档（归档文件夹可在下拉菜单里设置；界面语言跟随系统）。Based on Jake Vossen's plugin, revived after NASA redesigned the APOD page. 基于 Jake Vossen 的插件，因 NASA 改版 APOD 页面而复活并重写取图逻辑。</xbar.desc>
 # <xbar.dependencies>python3,pillow</xbar.dependencies>
 # <xbar.abouturl>https://github.com/iam-otakun/swiftbar-nasa-apod</xbar.abouturl>
 
@@ -31,6 +31,51 @@ import subprocess
 
 # ---------- 归档设置：下拉菜单里的「归档：…」子菜单会带参数再次调用本脚本 ----------
 _CONF = os.path.expanduser('~/.nasa-apod.conf')
+
+# ---------- 界面语言：跟随系统（中文系统用中文，其它语言用英文）；环境变量 APOD_LANG 可覆盖 ----------
+def _detect_zh():
+    ov = os.environ.get('APOD_LANG', '').strip().lower()
+    if ov.startswith('zh'):
+        return True
+    if ov:
+        return False
+    try:
+        langs = subprocess.run(['defaults', 'read', '-g', 'AppleLanguages'], capture_output=True, text=True, timeout=5).stdout
+        q1 = langs.find('"')
+        q2 = langs.find('"', q1 + 1) if q1 >= 0 else -1
+        if q1 >= 0 and q2 > q1:
+            return langs[q1 + 1:q2].lower().startswith('zh')
+        loc = subprocess.run(['defaults', 'read', '-g', 'AppleLocale'], capture_output=True, text=True, timeout=5).stdout.strip().lower()
+        return loc.startswith('zh')
+    except Exception:
+        return False
+
+_ZH = _detect_zh()
+
+if _ZH:
+    S = {
+        'setup_title': '归档设置',
+        'first_msg': '欢迎使用 NASA 每日一图。',
+        'first_body': '每天的原图会归档到下面的文件夹：可以直接改，也可以点「选择文件夹…」挑选；清空则不归档。点「取消」将使用默认目录，之后随时可在下拉菜单的「归档」里更改。',
+        'cancel': '取消', 'ok': '确定', 'save': '保存', 'choose_btn': '选择文件夹…',
+        'choose_prompt': '选择归档 NASA 每日图片的文件夹',
+        'input_msg': '输入归档目录（清空 = 不归档）',
+        'archive': '归档', 'colon': '：', 'off': '已关闭',
+        'm_choose': '选择文件夹…', 'm_input': '输入路径…', 'm_disable': '关闭归档', 'm_default': '恢复默认目录',
+        'error': '未能完成请求：今天的每日一图可能是视频，或缺少必要的依赖（Pillow）',
+    }
+else:
+    S = {
+        'setup_title': 'Archive Settings',
+        'first_msg': 'Welcome to NASA APOD.',
+        'first_body': 'Each day\'s original picture is archived to the folder below. Edit it, or click "Choose Folder..." to pick one; clear it to disable archiving. "Cancel" uses the default folder. You can change this any time in the dropdown\'s Archive submenu.',
+        'cancel': 'Cancel', 'ok': 'OK', 'save': 'Save', 'choose_btn': 'Choose Folder...',
+        'choose_prompt': 'Choose a folder for archiving the NASA picture of the day',
+        'input_msg': 'Archive folder (clear it to disable archiving)',
+        'archive': 'Archive', 'colon': ': ', 'off': 'Off',
+        'm_choose': 'Choose Folder...', 'm_input': 'Type a Path...', 'm_disable': 'Turn Off Archiving', 'm_default': 'Restore Default Folder',
+        'error': 'Could not complete the request: today\'s picture may be a video, or a dependency (Pillow) is missing.',
+    }
 
 def _conf_value():
     # 未设过返回 None；空字符串表示关闭归档；否则返回用户填的路径
@@ -70,12 +115,12 @@ def _as_escape(s):
 if len(sys.argv) > 1:
     _act = sys.argv[1]
     if _act == 'choose-dir':
-        _p = _osa('POSIX path of (choose folder with prompt "选择归档 NASA 每日图片的文件夹")')
+        _p = _osa('POSIX path of (choose folder with prompt "' + _as_escape(S['choose_prompt']) + '")')
         if _p:
             _save_conf(_p.rstrip('/') or '/')
     elif _act == 'input-dir':
         _cur = _effective_dir() or ''
-        _p = _osa('text returned of (display dialog "输入归档目录（清空 = 不归档）" default answer "' + _as_escape(_cur) + '" buttons {"取消", "保存"} default button "保存")')
+        _p = _osa('text returned of (display dialog "' + _as_escape(S['input_msg']) + '" default answer "' + _as_escape(_cur) + '" buttons {"' + _as_escape(S['cancel']) + '", "' + _as_escape(S['save']) + '"} default button "' + _as_escape(S['save']) + '")')
         if _p is not None:
             _save_conf(_p.strip())
     elif _act == 'disable':
@@ -93,22 +138,24 @@ if len(sys.argv) > 1:
 # 首次运行（尚无配置文件）：先给一次归档目录设置入口，预填默认路径，
 # 不改就直接点「确定」；点「取消」同样按默认走，之后不再打扰（菜单里随时可改）。
 if not os.path.exists(_CONF):
-    _first = _osa('''set curPath to "~/Pictures/NASA-Apod"
-repeat
-	set dlg to display dialog "欢迎使用 NASA 每日一图。" & return & return & "每天的原图会归档到下面的文件夹：可以直接改，也可以点「选择文件夹…」挑选；清空则不归档。点「取消」将使用默认目录，之后随时可在下拉菜单的「归档」里更改。" default answer curPath buttons {"取消", "选择文件夹…", "确定"} default button "确定" with title "归档设置"
-	set btn to button returned of dlg
-	if btn is "确定" then
-		return text returned of dlg
-	else if btn is "取消" then
-		return "~/Pictures/NASA-Apod"
-	else
-		try
-			set chosen to choose folder with prompt "选择归档 NASA 每日图片的文件夹"
-			set curPath to POSIX path of chosen
-			if curPath ends with "/" then set curPath to text 1 thru -2 of curPath
-		end try
-	end if
-end repeat''')
+    _script = (
+        'set curPath to "~/Pictures/NASA-Apod"\nrepeat\n'
+        '\tset dlg to display dialog "' + _as_escape(S['first_msg']) + '" & return & return & "' + _as_escape(S['first_body']) + '" default answer curPath buttons {"' + _as_escape(S['cancel']) + '", "' + _as_escape(S['choose_btn']) + '", "' + _as_escape(S['ok']) + '"} default button "' + _as_escape(S['ok']) + '" with title "' + _as_escape(S['setup_title']) + '"\n'
+        '\tset btn to button returned of dlg\n'
+        '\tif btn is "' + _as_escape(S['ok']) + '" then\n'
+        '\t\treturn text returned of dlg\n'
+        '\telse if btn is "' + _as_escape(S['cancel']) + '" then\n'
+        '\t\treturn "~/Pictures/NASA-Apod"\n'
+        '\telse\n'
+        '\t\ttry\n'
+        '\t\t\tset chosen to choose folder with prompt "' + _as_escape(S['choose_prompt']) + '"\n'
+        '\t\t\tset curPath to POSIX path of chosen\n'
+        '\t\t\tif curPath ends with "/" then set curPath to text 1 thru -2 of curPath\n'
+        '\t\tend try\n'
+        '\tend if\n'
+        'end repeat'
+    )
+    _first = _osa(_script)
     if _first is None:
         _save_conf('~/Pictures/NASA-Apod')
     else:
@@ -238,10 +285,10 @@ try:
     _self = os.path.abspath(sys.argv[0])
     _dir_now = _effective_dir()
     print('---')
-    print('归档：' + (_dir_now if _dir_now else '已关闭'))
-    print('--选择文件夹… | bash="' + _self + '" param0=choose-dir terminal=false refresh=true')
-    print('--输入路径… | bash="' + _self + '" param0=input-dir terminal=false refresh=true')
-    print('--关闭归档 | bash="' + _self + '" param0=disable terminal=false refresh=true')
-    print('--恢复默认目录 | bash="' + _self + '" param0=default terminal=false refresh=true')
+    print(S['archive'] + S['colon'] + (_dir_now if _dir_now else S['off']))
+    print('--' + S['m_choose'] + ' | bash="' + _self + '" param0=choose-dir terminal=false refresh=true')
+    print('--' + S['m_input'] + ' | bash="' + _self + '" param0=input-dir terminal=false refresh=true')
+    print('--' + S['m_disable'] + ' | bash="' + _self + '" param0=disable terminal=false refresh=true')
+    print('--' + S['m_default'] + ' | bash="' + _self + '" param0=default terminal=false refresh=true')
 except:
-    print("未能完成请求：今天的每日一图可能是视频，或缺少必要的依赖（Pillow）")
+    print(S['error'])
