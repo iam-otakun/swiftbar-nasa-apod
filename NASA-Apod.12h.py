@@ -9,13 +9,12 @@
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # <xbar.title>NASA Picture of the Day</xbar.title>
-# <xbar.version>v1.0</xbar.version>
-# <xbar.author>Jake Vossen</xbar.author>
-# <xbar.author.github>jakevossen5</xbar.author.github>
-# <xbar.desc>Displays a the NASA picture of the day</xbar.desc>
-# <xbar.image>https://raw.githubusercontent.com/jakevossen5/apodbitbar/master/example.png</xbar.image>
+# <xbar.version>v1.1</xbar.version>
+# <xbar.author>Otakun and Dash</xbar.author>
+# <xbar.author.github>iam-otakun</xbar.author.github>
+# <xbar.desc>Displays the NASA Astronomy Picture of the Day in the menu bar and archives the original picture to ~/Pictures/NASA-Apod every day. Based on Jake Vossen's plugin, revived after NASA redesigned the APOD page.</xbar.desc>
 # <xbar.dependencies>python3,pillow</xbar.dependencies>
-# <xbar.abouturl>https://github.com/jakevossen5/apodbitbar/tree/master</xbar.abouturl>
+# <xbar.abouturl>https://github.com/iam-otakun/swiftbar-nasa-apod</xbar.abouturl>
 
 
 
@@ -59,6 +58,7 @@ try:
     image_path = io.BytesIO(urllib.request.urlopen(image_req).read())
 
     # 保存原图到 ~/Pictures/NASA-Apod/（按 APOD 日期命名，已有则跳过）
+    _saved_path = None
     try:
         import os, re as _re, datetime
         _months = {'January':1,'February':2,'March':3,'April':4,'May':5,'June':6,'July':7,'August':8,'September':9,'October':10,'November':11,'December':12}
@@ -73,6 +73,7 @@ try:
         _title = _tm2.group(1).strip() if _tm2 else ''
         _title = _title.replace('/', '-').replace(':', '-').replace(chr(92), '-').strip()
         _path = os.path.join(_dir, (_d + ' ' + _title + '.jpg') if _title else (_d + '.jpg'))
+        _saved_path = _path
         if not os.path.exists(_path):
             with open(_path, 'wb') as _f:
                 _f.write(image_path.getvalue())
@@ -99,6 +100,10 @@ try:
 
     _tm = re.search(r'class="display-48 margin-top-0 margin-bottom-3">([^<]+)<', r)
     if _tm:
-        print(_tm.group(1).strip())
+        # 标题可点击：点一下在 Finder 里打开归档文件夹并选中这张图
+        if _saved_path:
+            print(_tm.group(1).strip() + ' | bash="/usr/bin/open" param0=-R param1="' + _saved_path + '" terminal=false')
+        else:
+            print(_tm.group(1).strip())
 except:
     print("Could not complete the request. Either the picture of the day is a video, or you do not have the proper dependencies installed")
