@@ -28,6 +28,8 @@ NASA 改版了 APOD 页面，原版 2019 年的抓取逻辑失效了：
   NASA 交付的部分图文件自带纯黑侧边（竖幅照片装进宽画布）。v1.3 起，下拉里显示的图会先裁掉整行整列的纯黑边，菜单宽度跟照片本身走。归档文件一像素不动。
 - **Refresh every 12 hours / 12 小时刷新** — APOD changes once a day, and the full-size image is a few MB, so the plugin refreshes twice a day instead of hourly.
   APOD 一天一换，原图有几 MB，插件改为每 12 小时刷新一次，不再每小时抓一遍。
+- **Manual refresh, with an answer / 手动刷新，还给回话** — Don't want to wait for the cycle? Click **Refresh**, right under the title in the dropdown: the plugin re-runs at once — and tells you the result. It first compares the date on screen against NASA's latest and pops a short hint: "Up to date!" when there is no newer picture, "Update successfully" when there was. The same item sits under the error message, so a failed fetch is one click to retry.
+  等不及周期？点下拉菜单里标题正下方的「刷新」：插件立刻重跑——而且给回话。它先把屏幕上的日期与 NASA 最新日期比一比，弹一句短提示：没新图是 "Up to date!"，有新图是 "Update successfully"。取图失败时，报错行下方也有同一项，一键即可重试。
 
 ## Install / 安装
 
