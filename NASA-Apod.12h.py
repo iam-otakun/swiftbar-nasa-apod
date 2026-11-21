@@ -9,7 +9,7 @@
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # <xbar.title>NASA 每日一图 / NASA APOD</xbar.title>
-# <xbar.version>v1.8</xbar.version>
+# <xbar.version>v1.8.1</xbar.version>
 # <xbar.author>Otakun and Dash</xbar.author>
 # <xbar.author.github>iam-otakun</xbar.author.github>
 # <xbar.desc>Shows the NASA Astronomy Picture of the Day in the menu bar and archives the original picture every day (archive folder configurable in the dropdown menu; UI language follows the system). 在菜单栏显示 NASA 每日一图，并把原图按日期归档（归档文件夹可在下拉菜单里设置；界面语言跟随系统）。Based on Jake Vossen's plugin, revived after NASA redesigned the APOD page. 基于 Jake Vossen 的插件，因 NASA 改版 APOD 页面而复活并重写取图逻辑。</xbar.desc>
@@ -21,6 +21,7 @@
 # May need to pip(3) install pillow
 # May need to install certificates: https://stackoverflow.com/questions/50236117/scraping-ssl-certificate-verify-failed-error-for-http-en-wikipedia-org
 import base64
+import html
 import urllib.request
 from PIL import Image
 import io
@@ -252,7 +253,7 @@ try:
         if _dir:
             os.makedirs(_dir, exist_ok=True)
             _tm2 = _re.search(r'class="display-48 margin-top-0 margin-bottom-3">([^<]+)<', r)
-            _title = _tm2.group(1).strip() if _tm2 else ''
+            _title = html.unescape(_tm2.group(1).strip()) if _tm2 else ''
             _title = _title.replace('/', '-').replace(':', '-').replace(chr(92), '-').strip()
             _path = os.path.join(_dir, (_d + ' ' + _title + '.jpg') if _title else (_d + '.jpg'))
             _saved_path = _path
@@ -312,9 +313,9 @@ try:
     if _tm:
         # 标题可点击：点一下在 Finder 里打开归档文件夹并选中这张图
         if _saved_path:
-            print(_tm.group(1).strip() + ' | bash="/usr/bin/open" param0=-R param1="' + _saved_path + '" terminal=false')
+            print(html.unescape(_tm.group(1).strip()) + ' | bash="/usr/bin/open" param0=-R param1="' + _saved_path + '" terminal=false')
         else:
-            print(_tm.group(1).strip())
+            print(html.unescape(_tm.group(1).strip()))
     # 手动刷新（v1.8）：点一下先比对日期给提示（Up to date! / Update successfully），随后重跑拉最新一图
     _self = os.path.abspath(sys.argv[0])
     print(S['m_refresh'] + ' | bash="' + _self + '" param0=refresh terminal=false refresh=true')
