@@ -9,7 +9,7 @@
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # <xbar.title>NASA 每日一图 / NASA APOD</xbar.title>
-# <xbar.version>v1.7</xbar.version>
+# <xbar.version>v1.8</xbar.version>
 # <xbar.author>Otakun and Dash</xbar.author>
 # <xbar.author.github>iam-otakun</xbar.author.github>
 # <xbar.desc>Shows the NASA Astronomy Picture of the Day in the menu bar and archives the original picture every day (archive folder configurable in the dropdown menu; UI language follows the system). 在菜单栏显示 NASA 每日一图，并把原图按日期归档（归档文件夹可在下拉菜单里设置；界面语言跟随系统）。Based on Jake Vossen's plugin, revived after NASA redesigned the APOD page. 基于 Jake Vossen 的插件，因 NASA 改版 APOD 页面而复活并重写取图逻辑。</xbar.desc>
@@ -31,6 +31,7 @@ import subprocess
 
 # ---------- 归档设置：下拉菜单里的「归档：…」子菜单会带参数再次调用本脚本 ----------
 _CONF = os.path.expanduser('~/.nasa-apod.conf')
+_STATE = os.path.expanduser('~/.nasa-apod.state')
 
 # ---------- 界面语言：跟随系统（中文系统用中文，其它语言用英文）；环境变量 APOD_LANG 可覆盖 ----------
 def _detect_zh():
@@ -61,7 +62,8 @@ if _ZH:
         'choose_prompt': '选择归档 NASA 每日图片的文件夹',
         'input_msg': '输入归档目录（清空 = 不归档）',
         'archive': '归档', 'colon': '：', 'off': '已关闭',
-        'm_choose': '选择文件夹…', 'm_input': '输入路径…', 'm_disable': '关闭归档', 'm_default': '恢复默认目录',
+        'm_choose': '选择文件夹…', 'm_input': '输入路径…', 'm_disable': '关闭归档', 'm_default': '恢复默认目录', 'm_refresh': '刷新',
+        'msg_uptodate': 'Up to date!', 'msg_updated': 'Update successfully',
         'error': '未能完成请求：今天的每日一图可能是视频，或缺少必要的依赖（Pillow）',
     }
 else:
@@ -73,7 +75,8 @@ else:
         'choose_prompt': 'Choose a folder for archiving the NASA picture of the day',
         'input_msg': 'Archive folder (clear it to disable archiving)',
         'archive': 'Archive', 'colon': ': ', 'off': 'Off',
-        'm_choose': 'Choose Folder...', 'm_input': 'Type a Path...', 'm_disable': 'Turn Off Archiving', 'm_default': 'Restore Default Folder',
+        'm_choose': 'Choose Folder...', 'm_input': 'Type a Path...', 'm_disable': 'Turn Off Archiving', 'm_default': 'Restore Default Folder', 'm_refresh': 'Refresh',
+        'msg_uptodate': 'Up to date!', 'msg_updated': 'Update successfully',
         'error': 'Could not complete the request: today\'s picture may be a video, or a dependency (Pillow) is missing.',
     }
 
@@ -123,6 +126,31 @@ if len(sys.argv) > 1:
         _p = _osa('text returned of (display dialog "' + _as_escape(S['input_msg']) + '" default answer "' + _as_escape(_cur) + '" buttons {"' + _as_escape(S['cancel']) + '", "' + _as_escape(S['save']) + '"} default button "' + _as_escape(S['save']) + '")')
         if _p is not None:
             _save_conf(_p.strip())
+    elif _act == 'refresh':
+        # 手动刷新：先比对「上次显示的日期」与 NASA 最新日期，给一句提示，再由 refresh=true 重跑主流程
+        import re as _re2
+        _prev = None
+        try:
+            with open(_STATE) as _f:
+                _prev = _f.read().strip() or None
+        except Exception:
+            pass
+        _new = None
+        try:
+            _html = str(urllib.request.urlopen(urllib.request.Request('https://apod.nasa.gov/apod/'), timeout=30).read())
+            _ma = _re2.search(r'image-article/apod-(\d{4})-([a-z]+)-(\d{1,2})-', _html)
+            if _ma:
+                _ml2 = {'january':1,'february':2,'march':3,'april':4,'may':5,'june':6,'july':7,'august':8,'september':9,'october':10,'november':11,'december':12}
+                _new = '%s-%02d-%02d' % (_ma.group(1), _ml2[_ma.group(2)], int(_ma.group(3)))
+        except Exception:
+            _new = None
+        if _new is None:
+            _msg = S['error']
+        elif _prev is not None and _new <= _prev:
+            _msg = S['msg_uptodate']
+        else:
+            _msg = S['msg_updated']
+        _osa('display dialog "' + _as_escape(_msg) + '" buttons {"' + _as_escape(S['ok']) + '"} default button "' + _as_escape(S['ok']) + '" with title "NASA APOD" giving up after 3')
     elif _act == 'disable':
         _save_conf('')
     elif _act == 'default':
@@ -212,6 +240,12 @@ try:
             _d = '%s-%02d-%02d' % (_m.group(1), _months[_m.group(2)], int(_m.group(3)))
         else:
             _d = datetime.date.today().isoformat()
+        # 记录本次显示的 APOD 日期，供「刷新」比对有没有新图（v1.8）
+        try:
+            with open(_STATE, 'w') as _sf:
+                _sf.write(_d + '\n')
+        except Exception:
+            pass
         # 归档目录：~/.nasa-apod.conf 里的 ARCHIVE_DIR（下拉菜单的归档设置可改）；
         # 没设过用默认 ~/Pictures/NASA-Apod，设为空则不归档。
         _dir = _effective_dir()
@@ -281,8 +315,10 @@ try:
             print(_tm.group(1).strip() + ' | bash="/usr/bin/open" param0=-R param1="' + _saved_path + '" terminal=false')
         else:
             print(_tm.group(1).strip())
-    # 归档设置子菜单：父项显示当前归档去向，子项带参数回调本脚本改设置
+    # 手动刷新（v1.8）：点一下先比对日期给提示（Up to date! / Update successfully），随后重跑拉最新一图
     _self = os.path.abspath(sys.argv[0])
+    print(S['m_refresh'] + ' | bash="' + _self + '" param0=refresh terminal=false refresh=true')
+    # 归档设置子菜单：父项显示当前归档去向，子项带参数回调本脚本改设置
     _dir_now = _effective_dir()
     print('---')
     print(S['archive'] + S['colon'] + (_dir_now if _dir_now else S['off']))
@@ -292,3 +328,4 @@ try:
     print('--' + S['m_default'] + ' | bash="' + _self + '" param0=default terminal=false refresh=true')
 except:
     print(S['error'])
+    print(S['m_refresh'] + ' | refresh=true')

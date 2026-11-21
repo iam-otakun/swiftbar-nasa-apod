@@ -63,6 +63,8 @@ The `.12h.` in the file name is SwiftBar's refresh-interval convention (every 12
 
 ## Changelog / 更新日志
 
+- **v1.8** (2026-11-21) — New Refresh item under the picture's title in the dropdown: one click makes SwiftBar re-run the plugin at once and fetch the newest picture, instead of waiting for the 12-hour cycle. The click first compares dates and answers with a hint — "Up to date!" when there is no newer picture, "Update successfully" when there is. The error line gains the same item, so a failed fetch can be retried with one click. / 下拉菜单的图片标题下方新增「刷新」一项：点一下，SwiftBar 立刻重跑插件、拉取最新图片，不必再等 12 小时周期；点击时先比对日期并给一句提示——没有新图是 "Up to date!"，有新图是 "Update successfully"。取图失败的报错行下也带同一项，可一键重试。
+
 - **v1.7** (2026-11-20) — Bilingual UI that follows the system language: Chinese on Chinese systems, English elsewhere — dropdown, Archive submenu, first-run setup dialog, folder/path dialogs and the error line included. Set the `APOD_LANG` environment variable (`zh`/`en`) to override. / 界面双语跟随系统语言：中文系统显示中文，其它显示英文——下拉菜单、归档子菜单、首次运行设置框、选目录/输路径对话框与报错行全覆盖；可用环境变量 `APOD_LANG`（`zh`/`en`）覆盖。
 
 - **v1.6** (2026-11-20) — Plugin UI language unified to Simplified Chinese (title, description, status and error lines). / 插件界面文字统一为简体中文（标题、说明、状态与报错行）。
