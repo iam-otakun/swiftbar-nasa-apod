@@ -4,6 +4,8 @@ A [SwiftBar](https://github.com/swiftbar/SwiftBar) plugin for macOS that shows t
 
 一个 macOS [SwiftBar](https://github.com/swiftbar/SwiftBar) 插件：把 [NASA 每日天文图（APOD）](https://apod.nasa.gov/apod/) 放进菜单栏——并在每天悄悄把原图存进你的图片文件夹归档。
 
+On Windows? The sibling app is [nasa-apod-windows](https://github.com/iam-otakun/nasa-apod-windows) — same features, same config and archive format; the two editions can share one archive folder. / 用 Windows？姊妹版是 [nasa-apod-windows](https://github.com/iam-otakun/nasa-apod-windows)——功能相同、配置与归档格式相同，两个版本可共用一个归档文件夹。
+
 ## About this app / 关于这个应用
 
 Made by **Otakun** ([@iam-otakun](https://github.com/iam-otakun)), who had the idea and sets the direction, and **Dash**, his Muse assistant, who writes the code. Otakun used Jake Vossen's original plugin until NASA's redesign broke it; rather than give up a daily piece of the sky in the menu bar, we revived it — and kept going: a clickable title that names the picture, a full-size archive that quietly grows day by day, and a refresh that answers back. It runs on Otakun's own Mac every day.
