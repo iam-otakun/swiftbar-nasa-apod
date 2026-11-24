@@ -9,7 +9,8 @@
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # <xbar.title>NASA 每日一图 / NASA APOD</xbar.title>
-# <xbar.version>v1.8.1</xbar.version>
+# <xbar.version>v1.8.2</xbar.version>
+# v1.8.2: About submenu (unified About: Version, Idea: Otakun, Coding: Dash, GitHub Repository link)
 # <xbar.author>Otakun and Dash</xbar.author>
 # <xbar.author.github>iam-otakun</xbar.author.github>
 # <xbar.desc>Shows the NASA Astronomy Picture of the Day in the menu bar and archives the original picture every day (archive folder configurable in the dropdown menu; UI language follows the system). 在菜单栏显示 NASA 每日一图，并把原图按日期归档（归档文件夹可在下拉菜单里设置；界面语言跟随系统）。Based on Jake Vossen's plugin, revived after NASA redesigned the APOD page. 基于 Jake Vossen 的插件，因 NASA 改版 APOD 页面而复活并重写取图逻辑。</xbar.desc>
@@ -63,7 +64,7 @@ if _ZH:
         'choose_prompt': '选择归档 NASA 每日图片的文件夹',
         'input_msg': '输入归档目录（清空 = 不归档）',
         'archive': '归档', 'colon': '：', 'off': '已关闭',
-        'm_choose': '选择文件夹…', 'm_input': '输入路径…', 'm_disable': '关闭归档', 'm_default': '恢复默认目录', 'm_refresh': '刷新',
+        'm_choose': '选择文件夹…', 'm_input': '输入路径…', 'm_disable': '关闭归档', 'm_default': '恢复默认目录', 'm_refresh': '刷新', 'm_about': '关于',
         'msg_uptodate': 'Up to date!', 'msg_updated': 'Update successfully',
         'error': '未能完成请求：今天的每日一图可能是视频，或缺少必要的依赖（Pillow）',
     }
@@ -76,7 +77,7 @@ else:
         'choose_prompt': 'Choose a folder for archiving the NASA picture of the day',
         'input_msg': 'Archive folder (clear it to disable archiving)',
         'archive': 'Archive', 'colon': ': ', 'off': 'Off',
-        'm_choose': 'Choose Folder...', 'm_input': 'Type a Path...', 'm_disable': 'Turn Off Archiving', 'm_default': 'Restore Default Folder', 'm_refresh': 'Refresh',
+        'm_choose': 'Choose Folder...', 'm_input': 'Type a Path...', 'm_disable': 'Turn Off Archiving', 'm_default': 'Restore Default Folder', 'm_refresh': 'Refresh', 'm_about': 'About',
         'msg_uptodate': 'Up to date!', 'msg_updated': 'Update successfully',
         'error': 'Could not complete the request: today\'s picture may be a video, or a dependency (Pillow) is missing.',
     }
@@ -327,6 +328,19 @@ try:
     print('--' + S['m_input'] + ' | bash="' + _self + '" param0=input-dir terminal=false refresh=true')
     print('--' + S['m_disable'] + ' | bash="' + _self + '" param0=disable terminal=false refresh=true')
     print('--' + S['m_default'] + ' | bash="' + _self + '" param0=default terminal=false refresh=true')
+    # 统一 About 子菜单：Version、Idea: Otakun、Coding: Dash、GitHub Repository 链接
+    print('---')
+    print(S['m_about'])
+    print('--Version v1.8.2')
+    print('--Idea: Otakun')
+    print('--Coding: Dash')
+    print('--GitHub Repository | href=https://github.com/iam-otakun/swiftbar-nasa-apod')
 except:
     print(S['error'])
     print(S['m_refresh'] + ' | refresh=true')
+    print('---')
+    print(S['m_about'])
+    print('--Version v1.8.2')
+    print('--Idea: Otakun')
+    print('--Coding: Dash')
+    print('--GitHub Repository | href=https://github.com/iam-otakun/swiftbar-nasa-apod')

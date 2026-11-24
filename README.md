@@ -73,6 +73,7 @@ The `.12h.` in the file name is SwiftBar's refresh-interval convention (every 12
 
 ## Changelog / 更新日志
 
+- **v1.8.2** (2026-11-24) — An **About** submenu at the end of the menu (Version, Idea: Otakun, Coding: Dash, and a "GitHub Repository" link) — the unified About rolled out to all our Windows and macOS programs in this round; it is shown even when the day's fetch fails. No functional changes. / 菜单末尾新增 **About** 子菜单（Version、Idea: Otakun、Coding: Dash、一条写着「GitHub Repository」的链接）——本轮统一 About 的一环，与其它 Windows、macOS 程序同一规格；抓取失败时同样显示。无功能变化。
 - **v1.8.1** (2026-11-21) — The title is now shown as written: HTML entities in NASA's heading (e.g. `&#039;`) are unescaped, so "Voyager's Neptune" no longer displays as "Voyager&#039;s Neptune"; archived filenames are cleaned the same way. / 标题按原文显示：NASA 标题里的网页编码（如 `&#039;`）现在会解开，不再显示成 "Voyager&#039;s Neptune"，归档文件名同步变干净。
 
 - **v1.8** (2026-11-21) — New Refresh item under the picture's title in the dropdown: one click makes SwiftBar re-run the plugin at once and fetch the newest picture, instead of waiting for the 12-hour cycle. The click first compares dates and answers with a hint — "Up to date!" when there is no newer picture, "Update successfully" when there is. The error line gains the same item, so a failed fetch can be retried with one click. / 下拉菜单的图片标题下方新增「刷新」一项：点一下，SwiftBar 立刻重跑插件、拉取最新图片，不必再等 12 小时周期；点击时先比对日期并给一句提示——没有新图是 "Up to date!"，有新图是 "Update successfully"。取图失败的报错行下也带同一项，可一键重试。
