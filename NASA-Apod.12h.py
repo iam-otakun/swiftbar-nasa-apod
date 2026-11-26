@@ -9,7 +9,8 @@
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # <xbar.title>NASA 每日一图 / NASA APOD</xbar.title>
-# <xbar.version>v1.9.2</xbar.version>
+# <xbar.version>v1.9.3</xbar.version>
+# v1.9.3: completeness rule (Fred): every day leaves its artefact in the archive. Image days: the original picture plus a same-named .txt holding title, date, credit, the full explanation and the source links. Video days: the .txt always, plus the .mp4 itself under the usual date-title name — capped at 100 MB, above which only the text and link are kept. The site offers no poster/first-frame for these videos (checked: no poster attribute, no companion image), so no frame is saved.
 # v1.9.2: image extraction rewritten for NASA's current page design — the day's picture now comes from the hero figure in front of the title (its link is the original file); the old image-article match and the og:image fallback are gone (on most days they silently substituted the site's template image for the real picture). Video days are now recognised as videos: the menu offers the video link and nothing is archived.
 # v1.9.1: date fix — NASA's redesigned page broke the old extraction (the first image-article slug and the "YYYY Month DD" text on the page both belong to the PREVIOUS entry's navigation, so every picture was stamped one day early). The date now comes from the byline under the entry's own title ("November 25, 2026"), with America/New_York "today" as the fallback (APOD days roll over at midnight ET, not local time)
 # v1.9.0: fetch hardening on par with the Windows version — browser User-Agent and timeouts on every request, the page fetch itself is inside the error path now (a failed fetch shows the error menu instead of dying), and a diagnostic log is kept at ~/.nasa-apod.log
@@ -71,6 +72,7 @@ if _ZH:
         'msg_uptodate': 'Up to date!', 'msg_updated': 'Update successfully',
         'error': '未能完成请求：今天的每日一图可能是视频，或缺少必要的依赖（Pillow）',
         'm_watch': '观看今日视频', 'm_videonote': '今日条目是视频',
+        'm_archived': '视频已归档：', 'm_toolarge': '视频较大（超 100 MB），仅提供链接',
     }
 else:
     S = {
@@ -85,9 +87,10 @@ else:
         'msg_uptodate': 'Up to date!', 'msg_updated': 'Update successfully',
         'error': 'Could not complete the request: today\'s picture may be a video, or a dependency (Pillow) is missing.',
         'm_watch': 'Watch Today\'s Video', 'm_videonote': 'Today\'s entry is a video',
+        'm_archived': 'Video archived: ', 'm_toolarge': 'Video is large (over 100 MB) — link only',
     }
 
-_VER = 'v1.9.2'
+_VER = 'v1.9.3'
 _UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36'
 _LOG = os.path.expanduser('~/.nasa-apod.log')
 
@@ -151,6 +154,79 @@ def _hero(page):
         if _sm:
             return {'video_url': _html4.unescape(_sm.group(1))}
     return None
+
+def _entry_text(page):
+    # 条目的署名与说明文字：说明在标题后的 media-detail-hero__description 段落里
+    # （以 <strong>Explanation:</strong> 开头、以 Tomorrow's picture 结束），
+    # 署名在标题前的 hds-credits 里。返回 (credit, explanation) 纯文本。
+    import re as _re5
+    import html as _html5
+    def _plain(_frag):
+        _frag = _re5.sub(r'(?i)<br\s*/?>', '\n', _frag)
+        _frag = _re5.sub(r'<[^>]+>', '', _frag)
+        _frag = _html5.unescape(_frag)
+        _lines = [' '.join(_ln.split()) for _ln in _frag.split('\n')]
+        return '\n'.join(_ln for _ln in _lines if _ln).strip()
+    # 锚点必须是条目标题本身：类名在页面的 CSS 与页脚模块里也会出现，
+    # 不定位就会抓到导航样板。署名在标题前 6 KB 内最后一个 hds-credits，
+    # 说明在标题之后第一个 media-detail-hero__description 段落。
+    _tm5 = _re5.search(r'display-48 margin-top-0 margin-bottom-3">([^<]+)<', page)
+    if not _tm5:
+        return '', ''
+    _credit = ''
+    _pre = page[max(0, _tm5.start() - 6000):_tm5.start()]
+    _ci = _pre.rfind('hds-credits')
+    if _ci >= 0:
+        _cm = _re5.search(r'<div>(.*?)</div>', _pre[_ci:_ci + 3000], _re5.S)
+        if _cm:
+            _credit = _plain(_cm.group(1))
+    _expl = ''
+    _pos = _tm5.end()
+    for _try in range(6):
+        _ei = page.find('media-detail-hero__description', _pos)
+        if _ei < 0:
+            break
+        _gt = page.find('>', _ei)
+        _pe = page.find('</p>', _gt) if _gt >= 0 else -1
+        if _gt >= 0 and _pe > _gt:
+            _frag = page[_gt + 1:_pe]
+            # 页面里混有 JSON 转义副本（\'、\/、\n 是字面字符）：先还原转义再处理，
+            # 否则 Explanation 标签剥不掉、Tomorrow's picture 也切不断。
+            _frag = _frag.replace('\\/', '/').replace("\\'", "'").replace('\\n', '\n').replace('\\t', '\t').replace('\\"', '"')
+            if 'Explanation:' in _frag:
+                _frag = _re5.sub(r'(?is)^.*?<strong>\s*Explanation:\s*</strong>', '', _frag, count=1)
+                _cut = _frag.find("Tomorrow's picture")
+                if _cut >= 0:
+                    _frag = _frag[:_cut]
+                    _frag = _re5.sub(r'(?i)<strong>\s*$', '', _frag)
+                _expl = _plain(_frag)
+                break
+        _pos = _ei + 10
+    return _credit, _expl
+
+def _write_entry_txt(_dir, _date, _title, _credit, _expl, _media_label, _media_url):
+    # 与照片同名的 .txt：标题、日期、署名、说明全文、来源链接。已存在则跳过。
+    try:
+        import os as _os5
+        _name = (_date + ' ' + _title + '.txt') if _title else (_date + '.txt')
+        _path = _os5.path.join(_dir, _name)
+        if _os5.path.exists(_path):
+            return _path
+        _lines = [_title, 'Date: ' + _date]
+        if _credit:
+            _lines.append(_credit)
+        _lines.append('')
+        _lines.append('Explanation:')
+        _lines.append(_expl if _expl else '(extraction failed)')
+        _lines.append('')
+        if _media_url:
+            _lines.append(_media_label + ': ' + _media_url)
+        _lines.append('APOD: https://apod.nasa.gov/apod/')
+        with open(_path, 'w', encoding='utf-8') as _tf:
+            _tf.write('\n'.join(_lines) + '\n')
+        return _path
+    except Exception:
+        return None
 
 def _fail():
     print(S['error'])
@@ -300,10 +376,47 @@ try:
             pass
         _log('displaying APOD date ' + _dv + ' (video)')
         _tmv = re.search(r'class="display-48 margin-top-0 margin-bottom-3">([^<]+)<', r)
+        _titlev = html.unescape(_tmv.group(1).strip()) if _tmv else ''
+        # 完整性：视频日必存同名 .txt；视频本体 ≤100 MB 一并存（同名 .mp4）
+        _saved_video = None
+        _too_large = False
+        _dirv = _effective_dir()
+        if _dirv:
+            try:
+                os.makedirs(_dirv, exist_ok=True)
+                _titlef = _titlev.replace('/', '-').replace(':', '-').replace(chr(92), '-').strip()
+                _creditv, _explv = _entry_text(r)
+                _write_entry_txt(_dirv, _dv, _titlef, _creditv, _explv, 'Video', _hero_info['video_url'])
+                _vname = (_dv + ' ' + _titlef + '.mp4') if _titlef else (_dv + '.mp4')
+                _vpath = os.path.join(_dirv, _vname)
+                if os.path.exists(_vpath):
+                    _saved_video = _vpath
+                else:
+                    _size = None
+                    try:
+                        _req = urllib.request.Request(_hero_info['video_url'], headers={'User-Agent': _UA}, method='HEAD')
+                        _size = int(urllib.request.urlopen(_req, timeout=30).headers.get('Content-Length') or 0) or None
+                    except Exception:
+                        _size = None
+                    if _size is not None and _size > 100 * 1024 * 1024:
+                        _too_large = True
+                        _log('video too large (%d bytes), link only' % _size)
+                    else:
+                        _vdata = _fetch(_hero_info['video_url'], 300)
+                        with open(_vpath, 'wb') as _vf:
+                            _vf.write(_vdata)
+                        _saved_video = _vpath
+                        _log('archived video %s (%d bytes)' % (_vname, len(_vdata)))
+            except Exception as _ve:
+                _log('video archive failed: %r' % (_ve,))
         if _tmv:
-            print(html.unescape(_tmv.group(1).strip()) + ' | href=https://apod.nasa.gov/apod/')
+            print(_titlev + ' | href=https://apod.nasa.gov/apod/')
         print(S['m_videonote'])
         print(S['m_watch'] + ' | href=' + _hero_info['video_url'])
+        if _saved_video:
+            print(S['m_archived'] + os.path.basename(_saved_video) + ' | bash="/usr/bin/open" param0=-R param1="' + _saved_video + '" terminal=false')
+        elif _too_large:
+            print(S['m_toolarge'])
         _selfv = os.path.abspath(sys.argv[0])
         print(S['m_refresh'] + ' | bash="' + _selfv + '" param0=refresh terminal=false refresh=true')
         print('---')
@@ -367,6 +480,9 @@ try:
                         _data = None
                 with open(_path, 'wb') as _f:
                     _f.write(_data if _data else image_path.getvalue())
+            # 完整性：图片日也存同名 .txt（标题、日期、署名、说明、原图链接）
+            _crediti, _expli = _entry_text(r)
+            _write_entry_txt(_dir, _d, _title, _crediti, _expli, 'Image', archive_url or image_url)
     except Exception:
         pass
     pillow_image = Image.open(image_path)
