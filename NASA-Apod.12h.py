@@ -9,7 +9,8 @@
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # <xbar.title>NASA 每日一图 / NASA APOD</xbar.title>
-# <xbar.version>v1.9.0</xbar.version>
+# <xbar.version>v1.9.1</xbar.version>
+# v1.9.1: date fix — NASA's redesigned page broke the old extraction (the first image-article slug and the "YYYY Month DD" text on the page both belong to the PREVIOUS entry's navigation, so every picture was stamped one day early). The date now comes from the byline under the entry's own title ("November 25, 2026"), with America/New_York "today" as the fallback (APOD days roll over at midnight ET, not local time)
 # v1.9.0: fetch hardening on par with the Windows version — browser User-Agent and timeouts on every request, the page fetch itself is inside the error path now (a failed fetch shows the error menu instead of dying), and a diagnostic log is kept at ~/.nasa-apod.log
 # v1.8.2: About submenu (unified About: Version, Idea: Otakun, Coding: Dash, GitHub Repository link)
 # <xbar.author>Otakun and Dash</xbar.author>
@@ -83,7 +84,7 @@ else:
         'error': 'Could not complete the request: today\'s picture may be a video, or a dependency (Pillow) is missing.',
     }
 
-_VER = 'v1.9.0'
+_VER = 'v1.9.1'
 _UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36'
 _LOG = os.path.expanduser('~/.nasa-apod.log')
 
@@ -98,6 +99,18 @@ def _log(msg):
 
 def _fetch(url, timeout):
     return urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': _UA}), timeout=timeout).read()
+
+def _page_date(page):
+    # 条目日期取标题附近署名行的「Month D, YYYY」；整页第一个 image-article
+    # 链接与「YYYY Month DD」字样都是上一篇的导航信息，用了就会差一天。
+    import re as _re3
+    _months3 = {'January':1,'February':2,'March':3,'April':4,'May':5,'June':6,'July':7,'August':8,'September':9,'October':10,'November':11,'December':12}
+    _tm3 = _re3.search(r'display-48 margin-top-0 margin-bottom-3">([^<]+)<', page)
+    _seg = page[max(0, _tm3.start() - 4000):_tm3.start() + 8000] if _tm3 else page
+    _md = _re3.search(r'(January|February|March|April|May|June|July|August|September|October|November|December) (\d{1,2}), (\d{4})', _seg)
+    if _md:
+        return '%s-%02d-%02d' % (_md.group(3), _months3[_md.group(1)], int(_md.group(2)))
+    return None
 
 def _fail():
     print(S['error'])
@@ -167,10 +180,7 @@ if len(sys.argv) > 1:
         _new = None
         try:
             _html = str(_fetch('https://apod.nasa.gov/apod/', 30))
-            _ma = _re2.search(r'image-article/apod-(\d{4})-([a-z]+)-(\d{1,2})-', _html)
-            if _ma:
-                _ml2 = {'january':1,'february':2,'march':3,'april':4,'may':5,'june':6,'july':7,'august':8,'september':9,'october':10,'november':11,'december':12}
-                _new = '%s-%02d-%02d' % (_ma.group(1), _ml2[_ma.group(2)], int(_ma.group(3)))
+            _new = _page_date(_html)
         except Exception:
             _new = None
         if _new is None:
@@ -255,20 +265,26 @@ try:
             image_url = "https://apod.nasa.gov/apod/" + image_url
 
 
+    # 日期以标题署名行为准（slug 抓到的可能是上一篇导航的日期）
+    _bd = _page_date(r)
+    if _bd:
+        apod_date = _bd
+
     image_path = io.BytesIO(_fetch(image_url, 60))
 
     # 保存原图到归档目录（按 APOD 日期命名，已有则跳过；目录由 ARCHIVE_DIR 决定，见下）
     _saved_path = None
     try:
         import os, re as _re, datetime
-        _months = {'January':1,'February':2,'March':3,'April':4,'May':5,'June':6,'July':7,'August':8,'September':9,'October':10,'November':11,'December':12}
-        _m = _re.search(r'(\d{4}) (January|February|March|April|May|June|July|August|September|October|November|December) (\d{1,2})', r)
         if apod_date:
             _d = apod_date
-        elif _m:
-            _d = '%s-%02d-%02d' % (_m.group(1), _months[_m.group(2)], int(_m.group(3)))
         else:
-            _d = datetime.date.today().isoformat()
+            # 兜底：APOD 的一天按美东午夜翻页，本机日期（东八区）会快一天
+            try:
+                import zoneinfo
+                _d = datetime.datetime.now(zoneinfo.ZoneInfo('America/New_York')).date().isoformat()
+            except Exception:
+                _d = datetime.date.today().isoformat()
         # 记录本次显示的 APOD 日期，供「刷新」比对有没有新图（v1.8）
         try:
             with open(_STATE, 'w') as _sf:
