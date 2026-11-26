@@ -9,7 +9,8 @@
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # <xbar.title>NASA 每日一图 / NASA APOD</xbar.title>
-# <xbar.version>v1.9.1</xbar.version>
+# <xbar.version>v1.9.2</xbar.version>
+# v1.9.2: image extraction rewritten for NASA's current page design — the day's picture now comes from the hero figure in front of the title (its link is the original file); the old image-article match and the og:image fallback are gone (on most days they silently substituted the site's template image for the real picture). Video days are now recognised as videos: the menu offers the video link and nothing is archived.
 # v1.9.1: date fix — NASA's redesigned page broke the old extraction (the first image-article slug and the "YYYY Month DD" text on the page both belong to the PREVIOUS entry's navigation, so every picture was stamped one day early). The date now comes from the byline under the entry's own title ("November 25, 2026"), with America/New_York "today" as the fallback (APOD days roll over at midnight ET, not local time)
 # v1.9.0: fetch hardening on par with the Windows version — browser User-Agent and timeouts on every request, the page fetch itself is inside the error path now (a failed fetch shows the error menu instead of dying), and a diagnostic log is kept at ~/.nasa-apod.log
 # v1.8.2: About submenu (unified About: Version, Idea: Otakun, Coding: Dash, GitHub Repository link)
@@ -69,6 +70,7 @@ if _ZH:
         'm_choose': '选择文件夹…', 'm_input': '输入路径…', 'm_disable': '关闭归档', 'm_default': '恢复默认目录', 'm_refresh': '刷新', 'm_about': '关于',
         'msg_uptodate': 'Up to date!', 'msg_updated': 'Update successfully',
         'error': '未能完成请求：今天的每日一图可能是视频，或缺少必要的依赖（Pillow）',
+        'm_watch': '观看今日视频', 'm_videonote': '今日条目是视频',
     }
 else:
     S = {
@@ -82,11 +84,17 @@ else:
         'm_choose': 'Choose Folder...', 'm_input': 'Type a Path...', 'm_disable': 'Turn Off Archiving', 'm_default': 'Restore Default Folder', 'm_refresh': 'Refresh', 'm_about': 'About',
         'msg_uptodate': 'Up to date!', 'msg_updated': 'Update successfully',
         'error': 'Could not complete the request: today\'s picture may be a video, or a dependency (Pillow) is missing.',
+        'm_watch': 'Watch Today\'s Video', 'm_videonote': 'Today\'s entry is a video',
     }
 
-_VER = 'v1.9.1'
+_VER = 'v1.9.2'
 _UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36'
 _LOG = os.path.expanduser('~/.nasa-apod.log')
+
+class _ApodDone(Exception):
+    # 主流程里提前收尾（视频日、抓取失败）时用它跳出大 try，
+    # 不能用 sys.exit——会被主流程的裸 except 当成失败再兜一次。
+    pass
 
 def _log(msg):
     # 与 Windows 版的 NasaApod.log 同义：取图成败都留一行，方便事后定位
@@ -110,6 +118,38 @@ def _page_date(page):
     _md = _re3.search(r'(January|February|March|April|May|June|July|August|September|October|November|December) (\d{1,2}), (\d{4})', _seg)
     if _md:
         return '%s-%02d-%02d' % (_md.group(3), _months3[_md.group(1)], int(_md.group(2)))
+    return None
+
+def _hero(page):
+    # 当日条目的主媒体挂在标题前的图版块里（hds-media-inner figure）：
+    # 图日子里 figure 的链接就是原图、<img> 是渲染图；视频日子里是 <video>。
+    # 页面前部的 image-article 链接全是导航/相关条目，og:image 是站点模板图，
+    # 两者都不能当当日图（v1.9.1 及以前在这里栽过：多数日子存下的是模板图）。
+    import re as _re4
+    import html as _html4
+    _tm4 = _re4.search(r'display-48 margin-top-0 margin-bottom-3">([^<]+)<', page)
+    if not _tm4:
+        return None
+    _win = page[max(0, _tm4.start() - 30000):_tm4.start()]
+    _fi = _win.rfind('<figure class="hds-media-inner')
+    if _fi >= 0:
+        _seg = _win[_fi:_fi + 6000]
+        _am = _re4.search(r'<a[^>]+href="([^"]+)"', _seg)
+        _im = _re4.search(r'<img[^>]+src="([^"]+)"', _seg)
+        if _im:
+            _disp = _html4.unescape(_im.group(1))
+            _href = _html4.unescape(_am.group(1)) if _am else ''
+            if '/content/dam/' in _href or _re4.search(r'\.(jpg|jpeg|png)$', _href.split('?')[0], _re4.I):
+                _orig = _href
+            else:
+                _orig = _re4.sub(r'dynamicimage/assets/science/', 'content/dam/science/', _disp).split('?')[0]
+            return {'image_url': _disp, 'archive_url': _orig}
+    _vi = _win.rfind('<video')
+    if _vi >= 0:
+        _seg = _win[_vi:_vi + 4000]
+        _sm = _re4.search(r'<source[^>]+src="([^"]+)"', _seg)
+        if _sm:
+            return {'video_url': _html4.unescape(_sm.group(1))}
     return None
 
 def _fail():
@@ -239,37 +279,53 @@ except Exception as _e:
 # print(r.find('.jpg'))
 try:
     import re
-    # 新版 APOD 页面：og:image 是站点写死的模板图（鹰状星云），与当日照片无关；
-    # 当日照片挂在 image-article 链接内的 <img> 上，链接 slug 自带条目日期。
-    apod_date = None
-    archive_url = None
-    ma = re.search(r'image-article/apod-(\d{4})-([a-z]+)-(\d{1,2})-[^"]*"[^>]*>\s*<img[^>]*?src="([^"]+)"', r)
-    if ma:
-        _ml = {'january':1,'february':2,'march':3,'april':4,'may':5,'june':6,'july':7,'august':8,'september':9,'october':10,'november':11,'december':12}
-        apod_date = '%s-%02d-%02d' % (ma.group(1), _ml[ma.group(2)], int(ma.group(3)))
-        image_url = ma.group(4).replace('&amp;', '&')
-        # 归档原图：dynamicimage 是渲染图，content/dam 下的同名文件才是原始大图
-        archive_url = re.sub(r'dynamicimage/assets/science/', 'content/dam/science/', image_url).split('?')[0]
-    else:
-        m = re.search(r'property="og:image" content="([^"]+)"', r)
-        if m:
-            image_url = m.group(1)
+    # 当日媒体以标题前的图版块为准（见 _hero）；日期以标题署名行为准。
+    apod_date = _page_date(r)
+    _hero_info = _hero(r)
+    if _hero_info is not None and not _hero_info.get('image_url') and _hero_info.get('video_url'):
+        # 视频日：给标题与观看入口，不归档、更不拿模板图冒充当日图
+        import datetime as _dtv
+        if apod_date:
+            _dv = apod_date
         else:
-            image_url = ""
-            for i in range(r.find('.jpg'), 0, -1):
-                if r[i] != '"':
-                    image_url = r[i] + image_url
-                else:
-                    break
-            image_url = image_url + "jpg"
-            image_url = "https://apod.nasa.gov/apod/" + image_url
-
-
-    # 日期以标题署名行为准（slug 抓到的可能是上一篇导航的日期）
-    _bd = _page_date(r)
-    if _bd:
-        apod_date = _bd
-
+            try:
+                import zoneinfo as _zi
+                _dv = _dtv.datetime.now(_zi.ZoneInfo('America/New_York')).date().isoformat()
+            except Exception:
+                _dv = _dtv.date.today().isoformat()
+        try:
+            with open(_STATE, 'w') as _sfv:
+                _sfv.write(_dv + '\n')
+        except Exception:
+            pass
+        _log('displaying APOD date ' + _dv + ' (video)')
+        _tmv = re.search(r'class="display-48 margin-top-0 margin-bottom-3">([^<]+)<', r)
+        if _tmv:
+            print(html.unescape(_tmv.group(1).strip()) + ' | href=https://apod.nasa.gov/apod/')
+        print(S['m_videonote'])
+        print(S['m_watch'] + ' | href=' + _hero_info['video_url'])
+        _selfv = os.path.abspath(sys.argv[0])
+        print(S['m_refresh'] + ' | bash="' + _selfv + '" param0=refresh terminal=false refresh=true')
+        print('---')
+        _dir_nowv = _effective_dir()
+        print(S['archive'] + S['colon'] + (_dir_nowv if _dir_nowv else S['off']))
+        print('--' + S['m_choose'] + ' | bash="' + _selfv + '" param0=choose-dir terminal=false refresh=true')
+        print('--' + S['m_input'] + ' | bash="' + _selfv + '" param0=input-dir terminal=false refresh=true')
+        print('--' + S['m_disable'] + ' | bash="' + _selfv + '" param0=disable terminal=false refresh=true')
+        print('--' + S['m_default'] + ' | bash="' + _selfv + '" param0=default terminal=false refresh=true')
+        print('---')
+        print(S['m_about'])
+        print('--Version ' + _VER)
+        print('--Idea: Otakun')
+        print('--Coding: Dash')
+        print('--GitHub Repository | href=https://github.com/iam-otakun/swiftbar-nasa-apod')
+        raise _ApodDone
+    if _hero_info is None or not _hero_info.get('image_url'):
+        _log('hero extraction failed')
+        _fail()
+        raise _ApodDone
+    image_url = _hero_info['image_url']
+    archive_url = _hero_info.get('archive_url')
     image_path = io.BytesIO(_fetch(image_url, 60))
 
     # 保存原图到归档目录（按 APOD 日期命名，已有则跳过；目录由 ARCHIVE_DIR 决定，见下）
@@ -379,6 +435,8 @@ try:
     print('--Idea: Otakun')
     print('--Coding: Dash')
     print('--GitHub Repository | href=https://github.com/iam-otakun/swiftbar-nasa-apod')
+except _ApodDone:
+    pass
 except:
     _log('main flow failed: %r' % (sys.exc_info()[1],))
     _fail()
