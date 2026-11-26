@@ -9,7 +9,8 @@
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # <xbar.title>NASA 每日一图 / NASA APOD</xbar.title>
-# <xbar.version>v1.8.2</xbar.version>
+# <xbar.version>v1.9.0</xbar.version>
+# v1.9.0: fetch hardening on par with the Windows version — browser User-Agent and timeouts on every request, the page fetch itself is inside the error path now (a failed fetch shows the error menu instead of dying), and a diagnostic log is kept at ~/.nasa-apod.log
 # v1.8.2: About submenu (unified About: Version, Idea: Otakun, Coding: Dash, GitHub Repository link)
 # <xbar.author>Otakun and Dash</xbar.author>
 # <xbar.author.github>iam-otakun</xbar.author.github>
@@ -82,6 +83,32 @@ else:
         'error': 'Could not complete the request: today\'s picture may be a video, or a dependency (Pillow) is missing.',
     }
 
+_VER = 'v1.9.0'
+_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36'
+_LOG = os.path.expanduser('~/.nasa-apod.log')
+
+def _log(msg):
+    # 与 Windows 版的 NasaApod.log 同义：取图成败都留一行，方便事后定位
+    try:
+        import datetime as _dt
+        with open(_LOG, 'a') as _lf:
+            _lf.write('%s %s\n' % (_dt.datetime.now().isoformat(timespec='seconds'), msg))
+    except Exception:
+        pass
+
+def _fetch(url, timeout):
+    return urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': _UA}), timeout=timeout).read()
+
+def _fail():
+    print(S['error'])
+    print(S['m_refresh'] + ' | refresh=true')
+    print('---')
+    print(S['m_about'])
+    print('--Version ' + _VER)
+    print('--Idea: Otakun')
+    print('--Coding: Dash')
+    print('--GitHub Repository | href=https://github.com/iam-otakun/swiftbar-nasa-apod')
+
 def _conf_value():
     # 未设过返回 None；空字符串表示关闭归档；否则返回用户填的路径
     try:
@@ -139,7 +166,7 @@ if len(sys.argv) > 1:
             pass
         _new = None
         try:
-            _html = str(urllib.request.urlopen(urllib.request.Request('https://apod.nasa.gov/apod/'), timeout=30).read())
+            _html = str(_fetch('https://apod.nasa.gov/apod/', 30))
             _ma = _re2.search(r'image-article/apod-(\d{4})-([a-z]+)-(\d{1,2})-', _html)
             if _ma:
                 _ml2 = {'january':1,'february':2,'march':3,'april':4,'may':5,'june':6,'july':7,'august':8,'september':9,'october':10,'november':11,'december':12}
@@ -192,10 +219,12 @@ if not os.path.exists(_CONF):
         _save_conf(_first.strip())
 print('🔭') # The telescope emoji is here, if your text editor does not render it
 print('---')
-url = 'https://apod.nasa.gov/apod/'
-req = urllib.request.Request(url)
-# try:
-r = str(urllib.request.urlopen(req).read())
+try:
+    r = str(_fetch('https://apod.nasa.gov/apod/', 30))
+except Exception as _e:
+    _log('page fetch failed: %r' % (_e,))
+    _fail()
+    sys.exit(0)
 # print(r)
 # print(r.find('.jpg'))
 try:
@@ -226,9 +255,7 @@ try:
             image_url = "https://apod.nasa.gov/apod/" + image_url
 
 
-    image_req = urllib.request.Request(image_url)
-
-    image_path = io.BytesIO(urllib.request.urlopen(image_req).read())
+    image_path = io.BytesIO(_fetch(image_url, 60))
 
     # 保存原图到归档目录（按 APOD 日期命名，已有则跳过；目录由 ARCHIVE_DIR 决定，见下）
     _saved_path = None
@@ -248,6 +275,7 @@ try:
                 _sf.write(_d + '\n')
         except Exception:
             pass
+        _log('displaying APOD date ' + _d)
         # 归档目录：~/.nasa-apod.conf 里的 ARCHIVE_DIR（下拉菜单的归档设置可改）；
         # 没设过用默认 ~/Pictures/NASA-Apod，设为空则不归档。
         _dir = _effective_dir()
@@ -262,7 +290,7 @@ try:
                 _data = None
                 if archive_url:
                     try:
-                        _data = urllib.request.urlopen(urllib.request.Request(archive_url)).read()
+                        _data = _fetch(archive_url, 60)
                     except Exception:
                         _data = None
                 with open(_path, 'wb') as _f:
@@ -331,16 +359,10 @@ try:
     # 统一 About 子菜单：Version、Idea: Otakun、Coding: Dash、GitHub Repository 链接
     print('---')
     print(S['m_about'])
-    print('--Version v1.8.2')
+    print('--Version ' + _VER)
     print('--Idea: Otakun')
     print('--Coding: Dash')
     print('--GitHub Repository | href=https://github.com/iam-otakun/swiftbar-nasa-apod')
 except:
-    print(S['error'])
-    print(S['m_refresh'] + ' | refresh=true')
-    print('---')
-    print(S['m_about'])
-    print('--Version v1.8.2')
-    print('--Idea: Otakun')
-    print('--Coding: Dash')
-    print('--GitHub Repository | href=https://github.com/iam-otakun/swiftbar-nasa-apod')
+    _log('main flow failed: %r' % (sys.exc_info()[1],))
+    _fail()
