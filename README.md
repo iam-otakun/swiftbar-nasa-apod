@@ -1,3 +1,7 @@
+> **This SwiftBar plugin has been superseded / 本 SwiftBar 插件已被独立版取代** — the standalone app lives in [**NASA-APOD**](https://github.com/iam-otakun/NASA-APOD) (macOS and Windows editions together, v2.0.0+). This repository is archived and kept for history only. / 独立版在 [NASA-APOD](https://github.com/iam-otakun/NASA-APOD)（macOS 与 Windows 两端同仓，v2.0.0 起）。本仓库已归档，仅作历史留存。
+
+---
+
 # NASA APOD — a SwiftBar plugin / NASA 每日天文图 SwiftBar 插件
 
 A [SwiftBar](https://github.com/swiftbar/SwiftBar) plugin for macOS that shows the [NASA Astronomy Picture of the Day (APOD)](https://apod.nasa.gov/apod/) in your menu bar — and quietly archives the original picture to your Pictures folder every day.
